@@ -1,0 +1,18 @@
+ceml_version: "0.1"
+circuit_id: "invalid_missing_values"
+description: "Invalid circuit missing values not in find"
+
+nodes:
+    - id: GND
+      type: ground
+    - id: N1
+    - id: N2
+
+components:
+    - id: R1
+      type: resistor
+      pins: [N1, N2]
+
+specs:
+  find:
+    - N2

@@ -1,0 +1,61 @@
+ceml_version: "0.1"
+circuit_id: "bjt_ce_amplifier"
+description: "Common-emitter BJT amplifier test fixture"
+
+nodes:
+    - id: GND
+      type: ground
+    - id: Vin
+      type: input
+    - id: N1
+    - id: VCC
+      type: supply
+      value: 12
+    - id: N2
+    - id: N3
+    - id: Vout
+      type: output
+
+components:
+    - id: C1
+      type: capacitor
+      pins: [Vin, N1]
+      ac_behavior: short_circuit
+    - id: R1
+      type: resistor
+      value: 47k
+      pins: [VCC, N1]
+    - id: R2
+      type: resistor
+      value: 10k
+      pins: [N1, GND]
+    - id: Q1
+      type: BJT
+      polarity: NPN
+      pins:
+        base: N1
+        collector: N2
+        emitter: N3
+    - id: RC
+      type: resistor
+      value: 2k2
+      pins: [VCC, N2]
+    - id: RE
+      type: resistor
+      value: 1k
+      pins: [N3, GND]
+    - id: C2
+      type: capacitor
+      pins: [N2, Vout]
+      ac_behavior: short_circuit
+    - id: RL
+      type: resistor
+      value: 10k
+      pins: [Vout, GND]
+
+specs:
+  given:
+    - hfe(Q1): 100
+  find:
+    - Av(Vout, Vin)
+    - Rin(Vin, GND)

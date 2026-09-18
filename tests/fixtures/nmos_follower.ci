@@ -1,0 +1,54 @@
+ceml_version: "0.1"
+circuit_id: "nmos_source_follower"
+description: "Common-drain NMOS source follower test fixture"
+
+nodes:
+    - id: GND
+      type: ground
+    - id: Vin
+      type: input
+    - id: N1
+    - id: VDD
+      type: supply
+      value: 15
+    - id: N2
+    - id: Vout
+      type: output
+
+components:
+    - id: C1
+      type: capacitor
+      pins: [Vin, N1]
+      ac_behavior: short_circuit
+    - id: RG
+      type: resistor
+      value: 1M
+      pins: [N1, GND]
+    - id: Cext
+      type: capacitor
+      pins: [N1, N2]
+    - id: Q1
+      type: MOSFET
+      polarity: NMOS
+      pins:
+        gate: N1
+        drain: VDD
+        source: N2
+    - id: RS
+      type: resistor
+      value: 2k
+      pins: [N2, GND]
+    - id: C2
+      type: capacitor
+      pins: [N2, Vout]
+      ac_behavior: short_circuit
+    - id: RL
+      type: resistor
+      value: 10k
+      pins: [Vout, GND]
+
+specs:
+  find:
+    - Av(Vout, Vin)
+    - Cext
+    - Fp(Vout, Vin)
