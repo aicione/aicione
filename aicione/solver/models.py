@@ -15,7 +15,7 @@ class SolverNode:
     """Represents an electric node with its potential state."""
     id: str
     is_ground: bool = False
-    fixed_voltage: Optional[float] = None
+    fixed_voltage: Optional[Union[float, str]] = None
 
     @property
     def is_fixed(self) -> bool:

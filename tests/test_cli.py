@@ -1,0 +1,37 @@
+"""Tests for AI.ciOne CLI commands."""
+
+from pathlib import Path
+import pytest
+from aicione.cli import main
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
+
+
+def test_cli_inspect_dc_success(capsys):
+    fixture_path = str(FIXTURES_DIR / "bjt_amplifier.ci")
+    exit_code = main(["inspect-dc", fixture_path])
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "AI.ciOne DC Solver Problem: bjt_ce_amplifier" in captured.out
+    assert "Q1" in captured.out
+    assert "Unknown Potential" in captured.out
+
+
+def test_cli_solve_dc_success(capsys):
+    fixture_path = str(FIXTURES_DIR / "bjt_amplifier.ci")
+    exit_code = main(["solve-dc", fixture_path])
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "AI.ciOne DC Operating Point Solution: bjt_ce_amplifier" in captured.out
+    assert "Transistor Q1" in captured.out
+    assert "IB  =" in captured.out
+    assert "IC  =" in captured.out
+    assert "gm  =" in captured.out
+    assert "rpi =" in captured.out
+
+
+def test_cli_file_not_found(capsys):
+    exit_code = main(["solve-dc", "non_existent.ci"])
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert "Error: File not found" in captured.err

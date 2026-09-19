@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 from aicione.ingest import ingest
-from aicione.solver.extractor import extract_dc_problem
+from aicione.solver import extract_dc_problem, solve_dc
 
 
 def command_inspect_dc(args: argparse.Namespace) -> int:
@@ -79,13 +79,77 @@ def command_inspect_dc(args: argparse.Namespace) -> int:
     return 0
 
 
-def main() -> int:
+def command_solve_dc(args: argparse.Namespace) -> int:
+    path = Path(args.path)
+    if not path.exists():
+        print(f"Error: File not found: {args.path}", file=sys.stderr)
+        return 1
+
+    try:
+        ingested = ingest(path)
+        dc_problem = extract_dc_problem(ingested)
+        solution = solve_dc(dc_problem)
+    except Exception as exc:
+        print(f"Error solving DC circuit: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"============================================================")
+    print(f"  AI.ciOne DC Operating Point Solution: {solution.circuit_id}")
+    print(f"============================================================")
+
+    # 1. Node Voltages
+    print("\n[Solved DC Node Voltages]")
+    for n_id, v in solution.node_voltages.items():
+        is_num = isinstance(v, (int, float)) or (hasattr(v, "is_number") and v.is_number)
+        if is_num:
+            print(f"  - V({n_id:6s}) = {float(v):10.4f} V")
+        else:
+            print(f"  - V({n_id:6s}) = {v}")
+
+    # 2. BJT Quiescent Points
+    if solution.bjt_operating_points:
+        print("\n[BJT Quiescent Bias Points (Active Region)]")
+        for q_id, q_pt in solution.bjt_operating_points.items():
+            print(f"  --- Transistor {q_id} ---")
+            is_ic_num = isinstance(q_pt.ic, (int, float)) or (hasattr(q_pt.ic, "is_number") and q_pt.ic.is_number)
+            if is_ic_num:
+                ib_f = float(q_pt.ib)
+                ic_f = float(q_pt.ic)
+                ie_f = float(q_pt.ie)
+                vbe_f = float(q_pt.vbe)
+                vce_f = float(q_pt.vce)
+                vcb_f = float(q_pt.vcb)
+                print(f"    IB  = {ib_f * 1e6:10.3f} uA")
+                print(f"    IC  = {ic_f * 1e3:10.3f} mA")
+                print(f"    IE  = {ie_f * 1e3:10.3f} mA")
+                print(f"    VBE = {vbe_f:10.3f} V")
+                print(f"    VCE = {vce_f:10.3f} V")
+                print(f"    VCB = {vcb_f:10.3f} V")
+                if q_pt.gm is not None:
+                    print(f"    gm  = {q_pt.gm * 1e3:10.2f} mA/V (mS)")
+                if q_pt.rpi is not None:
+                    print(f"    rpi = {q_pt.rpi / 1e3:10.2f} kOhm")
+                if q_pt.ro is not None:
+                    print(f"    ro  = {q_pt.ro / 1e3:10.2f} kOhm")
+            else:
+                print(f"    IB  = {q_pt.ib}")
+                print(f"    IC  = {q_pt.ic}")
+                print(f"    IE  = {q_pt.ie}")
+                print(f"    VBE = {q_pt.vbe}")
+                print(f"    VCE = {q_pt.vce}")
+
+    print("\n-> DC Operating Point analysis completed successfully.\n")
+    return 0
+
+
+def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="aicione",
         description="AI.ciOne Analytical Engine CLI",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    # inspect-dc
     inspect_parser = subparsers.add_parser(
         "inspect-dc",
         help="Inspect the extracted DC analytical solver problem from a .ci file.",
@@ -93,9 +157,18 @@ def main() -> int:
     inspect_parser.add_argument("path", help="Path to the .ci file")
     inspect_parser.set_defaults(func=command_inspect_dc)
 
-    args = parser.parse_args()
+    # solve-dc
+    solve_parser = subparsers.add_parser(
+        "solve-dc",
+        help="Solve the DC quiescent operating point analytically with SymPy.",
+    )
+    solve_parser.add_argument("path", help="Path to the .ci file")
+    solve_parser.set_defaults(func=command_solve_dc)
+
+    args = parser.parse_args(argv)
     return args.func(args)
 
 
 if __name__ == "__main__":
     sys.exit(main())
+

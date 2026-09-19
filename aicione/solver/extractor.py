@@ -43,8 +43,9 @@ def extract_dc_problem(ingested: IngestedCircuit) -> DCSolverProblem:
     for node_id, node in ingested.nodes.items():
         if node.type == NodeType.GROUND or node_id == "GND":
             nodes[node_id] = SolverNode(id=node_id, is_ground=True, fixed_voltage=0.0)
-        elif node.type == NodeType.SUPPLY and node.value and node.value.numeric is not None:
-            nodes[node_id] = SolverNode(id=node_id, is_ground=False, fixed_voltage=node.value.numeric)
+        elif node.type == NodeType.SUPPLY and node.value:
+            val = node.value.numeric if node.value.numeric is not None else node.value.raw
+            nodes[node_id] = SolverNode(id=node_id, is_ground=False, fixed_voltage=val)
         else:
             nodes[node_id] = SolverNode(id=node_id, is_ground=False, fixed_voltage=None)
 
