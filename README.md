@@ -42,3 +42,4 @@ Design choices and implementation roadmaps are documented under [`decisions/`](d
 - [ADR 0002](decisions/0002-dc-solver-problem-extraction.md): DC Solver Problem Extraction and Mathematical Representation
 - [ADR 0003](decisions/0003-dc-analytical-solver-sympy.md): DC Analytical Solver using SymPy Nodal Analysis and Device Models
 - [ADR 0004](decisions/0004-ac-small-signal-solver-roadmap.md): AC Small-Signal Solver Strategy and Implementation Roadmap
+- [ADR 0005](decisions/0005-ac-small-signal-hybrid-pi-ast.md): AC Small-Signal AST Modeling and Linearized Device Representations

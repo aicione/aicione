@@ -12,6 +12,10 @@ from aicione.solver.models import (
     MOSFETDCDevice,
     ResistorBranch,
     SolverNode,
+    ACSourceBranch,
+    BJTHybridPiDevice,
+    MOSFETSmallSignalDevice,
+    ACSolverProblem,
 )
 
 __all__ = [
@@ -26,4 +30,8 @@ __all__ = [
     "DCSourceBranch",
     "BJTDCDevice",
     "MOSFETDCDevice",
+    "ACSourceBranch",
+    "BJTHybridPiDevice",
+    "MOSFETSmallSignalDevice",
+    "ACSolverProblem",
 ]
