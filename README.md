@@ -32,6 +32,9 @@ aicione inspect-dc tests/fixtures/bjt_amplifier.ci
 
 # Solve DC operating point and hybrid-pi parameters
 aicione solve-dc tests/fixtures/bjt_amplifier.ci
+
+# Inspect extracted AC small-signal network
+aicione inspect-ac tests/fixtures/bjt_amplifier.ci
 ```
 
 ## Architecture Decision Records (ADRs)
@@ -43,3 +46,4 @@ Design choices and implementation roadmaps are documented under [`decisions/`](d
 - [ADR 0003](decisions/0003-dc-analytical-solver-sympy.md): DC Analytical Solver using SymPy Nodal Analysis and Device Models
 - [ADR 0004](decisions/0004-ac-small-signal-solver-roadmap.md): AC Small-Signal Solver Strategy and Implementation Roadmap
 - [ADR 0005](decisions/0005-ac-small-signal-hybrid-pi-ast.md): AC Small-Signal AST Modeling and Linearized Device Representations
+- [ADR 0006](decisions/0006-ac-problem-extraction-and-node-coalescing.md): AC Circuit Problem Extraction and Node Coalescing

@@ -35,3 +35,18 @@ def test_cli_file_not_found(capsys):
     assert exit_code == 1
     captured = capsys.readouterr()
     assert "Error: File not found" in captured.err
+
+
+def test_cli_inspect_ac_success(capsys):
+    fixture_path = str(FIXTURES_DIR / "bjt_amplifier.ci")
+    exit_code = main(["inspect-ac", fixture_path])
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "AI.ciOne AC Small-Signal Problem: bjt_ce_amplifier" in captured.out
+    assert "Coalesced/Aliased -> Vin" in captured.out
+    assert "AC Virtual Ground" in captured.out
+    assert "Hybrid-pi: Base=Vin, Collector=Vout, Emitter=N3" in captured.out
+    assert "gm = 49.47 mS" in captured.out
+    assert "rpi = 2.02 kOhm" in captured.out
+    assert "Av(Vout, Vin)" in captured.out
+

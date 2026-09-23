@@ -154,5 +154,8 @@ class ACSolverProblem:
         return curr
 
     def get_unknown_nodes(self) -> list[str]:
-        """Returns node IDs whose AC potentials are unknown variables to solve for."""
-        return [node_id for node_id, node in self.nodes.items() if not node.is_fixed]
+        """Returns canonical node IDs whose AC potentials are unknown variables to solve for."""
+        return [
+            node_id for node_id, node in self.nodes.items()
+            if not node.is_fixed and node_id not in self.node_aliases
+        ]

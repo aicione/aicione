@@ -4,22 +4,23 @@ Contains mathematical problem models and equation extractors for DC and AC analy
 """
 
 from aicione.solver.dc import BJTQuiescentPoint, DCSolution, DCSolver, solve_dc
-from aicione.solver.extractor import extract_dc_problem
+from aicione.solver.extractor import extract_ac_problem, extract_dc_problem
 from aicione.solver.models import (
+    ACSourceBranch,
+    ACSolverProblem,
     BJTDCDevice,
+    BJTHybridPiDevice,
     DCSolverProblem,
     DCSourceBranch,
     MOSFETDCDevice,
+    MOSFETSmallSignalDevice,
     ResistorBranch,
     SolverNode,
-    ACSourceBranch,
-    BJTHybridPiDevice,
-    MOSFETSmallSignalDevice,
-    ACSolverProblem,
 )
 
 __all__ = [
     "extract_dc_problem",
+    "extract_ac_problem",
     "solve_dc",
     "DCSolver",
     "DCSolution",

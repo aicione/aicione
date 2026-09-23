@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 from aicione.ingest import ingest
-from aicione.solver import extract_dc_problem, solve_dc
+from aicione.solver import extract_ac_problem, extract_dc_problem, solve_dc
 
 
 def command_inspect_dc(args: argparse.Namespace) -> int:
@@ -76,6 +76,79 @@ def command_inspect_dc(args: argparse.Namespace) -> int:
             print(f"  - {t}")
 
     print("\n-> Status: Ready for equation formulation and SymPy symbolic solver.\n")
+    return 0
+
+
+def command_inspect_ac(args: argparse.Namespace) -> int:
+    path = Path(args.path)
+    if not path.exists():
+        print(f"Error: File not found: {args.path}", file=sys.stderr)
+        return 1
+
+    try:
+        ingested = ingest(path)
+        ac_problem = extract_ac_problem(ingested)
+    except Exception as exc:
+        print(f"Error extracting AC circuit: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"============================================================")
+    print(f"  AI.ciOne AC Small-Signal Problem: {ac_problem.circuit_id}")
+    print(f"============================================================")
+
+    # 1. Nodes & Potentials
+    print("\n[AC Nodes & Incremental Potentials]")
+    for n_id, n in ac_problem.nodes.items():
+        if n_id in ac_problem.node_aliases:
+            canon = ac_problem.canonical_node(n_id)
+            status = f"Coalesced/Aliased -> {canon}"
+        elif n.is_ground:
+            status = "0.0 V (Circuit Ground Reference)"
+        elif n.fixed_voltage is not None:
+            status = f"{n.fixed_voltage:.1f} V (AC Virtual Ground)"
+        else:
+            status = "Unknown Small-Signal Potential (Variable to solve)"
+        print(f"  - {n_id:8s} -> {status}")
+
+    unknown_nodes = ac_problem.get_unknown_nodes()
+    print(f"\n  Canonical Unknown Node Potentials to Solve: {len(unknown_nodes)} {unknown_nodes}")
+
+    # 2. Resistors
+    print(f"\n[AC Resistive Branches ({len(ac_problem.resistors)})]")
+    for r in ac_problem.resistors:
+        print(f"  - {r.id:6s} between {r.node_a:<6s} and {r.node_b:<6s} | R = {r.resistance}")
+
+    # 3. BJTs (Hybrid-pi models)
+    if ac_problem.bjts:
+        print(f"\n[BJT Linearized Hybrid-pi Models ({len(ac_problem.bjts)})]")
+        for q in ac_problem.bjts:
+            gm_str = f"{q.gm * 1e3:.2f} mS" if isinstance(q.gm, (int, float)) else str(q.gm)
+            rpi_str = f"{q.rpi / 1e3:.2f} kOhm" if isinstance(q.rpi, (int, float)) else str(q.rpi)
+            ro_str = f"{q.ro / 1e3:.2f} kOhm" if isinstance(q.ro, (int, float)) else (str(q.ro) if q.ro else "inf")
+            print(f"  - {q.id:6s} Hybrid-pi: Base={q.base_node}, Collector={q.collector_node}, Emitter={q.emitter_node}")
+            print(f"           Parameters: gm = {gm_str}, rpi = {rpi_str}, ro = {ro_str}")
+
+    # 4. MOSFETs
+    if ac_problem.mosfets:
+        print(f"\n[MOSFET Small-Signal Models ({len(ac_problem.mosfets)})]")
+        for m in ac_problem.mosfets:
+            print(f"  - {m.id:6s}: Gate={m.gate_node}, Drain={m.drain_node}, Source={m.source_node}")
+            print(f"           Parameters: gm = {m.gm}, ro = {m.ro or 'inf'}")
+
+    # 5. Sources
+    if ac_problem.sources:
+        print(f"\n[AC Test/Signal Sources ({len(ac_problem.sources)})]")
+        for s in ac_problem.sources:
+            kind = "Voltage Source" if s.is_voltage else "Current Source"
+            print(f"  - {s.id:6s} from {s.node_p} to {s.node_n} | {kind} = {s.value}")
+
+    # 6. Target specs
+    if ac_problem.find_targets:
+        print(f"\n[Specs to Solve in AC Analysis]")
+        for t in ac_problem.find_targets:
+            print(f"  - {t}")
+
+    print("\n-> Status: Ready for AC small-signal equation formulation.\n")
     return 0
 
 
@@ -156,6 +229,14 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     inspect_parser.add_argument("path", help="Path to the .ci file")
     inspect_parser.set_defaults(func=command_inspect_dc)
+
+    # inspect-ac
+    inspect_ac_parser = subparsers.add_parser(
+        "inspect-ac",
+        help="Inspect the extracted AC small-signal analytical problem from a .ci file.",
+    )
+    inspect_ac_parser.add_argument("path", help="Path to the .ci file")
+    inspect_ac_parser.set_defaults(func=command_inspect_ac)
 
     # solve-dc
     solve_parser = subparsers.add_parser(

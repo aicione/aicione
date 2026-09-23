@@ -1,8 +1,9 @@
 """Tests for AI.ciOne Solver AST & DC Problem Extractor."""
 
 from pathlib import Path
+import pytest
 from aicione.ingest import ingest
-from aicione.solver.extractor import extract_dc_problem
+from aicione.solver.extractor import extract_ac_problem, extract_dc_problem
 from aicione.solver.models import (
     ACSourceBranch,
     ACSolverProblem,
@@ -159,9 +160,114 @@ def test_ac_solver_problem_and_node_aliasing():
     problem.node_aliases["N0"] = "Vin"
     assert problem.canonical_node("N0") == "N1"
 
-    # Unknown AC nodes exclude GND and AC virtual grounds (VCC)
+    # Unknown AC nodes exclude GND, AC virtual grounds (VCC), and aliased nodes
     unknowns = problem.get_unknown_nodes()
     assert "GND" not in unknowns
     assert "VCC" not in unknowns
-    assert set(unknowns) == {"Vin", "N1", "N2", "Vout"}
+    assert set(unknowns) == {"N1", "N2"}
+
+
+def test_extract_ac_problem_bjt_amplifier():
+    """Validates automatic AC problem extraction from bjt_amplifier.ci."""
+    ci_path = FIXTURES_DIR / "bjt_amplifier.ci"
+    ingested = ingest(ci_path)
+    ac_prob = extract_ac_problem(ingested)
+
+    assert isinstance(ac_prob, ACSolverProblem)
+    assert ac_prob.circuit_id == "bjt_ce_amplifier"
+
+    # Virtual AC grounds
+    assert ac_prob.nodes["GND"].is_fixed
+    assert ac_prob.nodes["VCC"].is_fixed
+    assert ac_prob.nodes["VCC"].fixed_voltage == 0.0
+
+    # Node aliasing via coupling capacitors
+    assert ac_prob.canonical_node("N1") == "Vin"
+    assert ac_prob.canonical_node("N2") == "Vout"
+
+    # Active BJT with linearized parameters
+    assert len(ac_prob.bjts) == 1
+    q1 = ac_prob.bjts[0]
+    assert q1.id == "Q1"
+    assert q1.base_node == "Vin"
+    assert q1.collector_node == "Vout"
+    assert q1.emitter_node == "N3"
+
+    # gm ~ 49.47 mS, rpi ~ 2021 Ohm
+    assert isinstance(q1.gm, float)
+    assert q1.gm == pytest.approx(49.47e-3, rel=1e-2)
+    assert q1.rpi == pytest.approx(2021.3, rel=1e-2)
+    assert q1.ro is None
+
+    # Resistors present in AC
+    resistor_map = {r.id: (r.node_a, r.node_b, r.resistance) for r in ac_prob.resistors}
+    assert "R1" in resistor_map
+    assert "R2" in resistor_map
+    assert "RC" in resistor_map
+    assert "RE" in resistor_map
+    assert "RL" in resistor_map
+
+    # Unknown AC nodes (canonical variables to solve for)
+    unknowns = set(ac_prob.get_unknown_nodes())
+    assert unknowns == {"Vin", "N3", "Vout"}
+
+    # Input test source automatically connected to input node
+    assert len(ac_prob.sources) == 1
+    src = ac_prob.sources[0]
+    assert src.node_p == "Vin"
+    assert src.node_n == "GND"
+    assert src.value == 1.0
+
+    # Targets
+    assert ac_prob.find_targets == ["Av(Vout, Vin)", "Rin(Vin, GND)"]
+
+
+def test_extract_ac_problem_bypassed_emitter_resistor():
+    """Validates that a resistor bypassed by a shorted capacitor is dropped from AC branches."""
+    raw_ci = """
+ceml_version: "0.1"
+circuit_id: "ce_bypassed"
+description: "Common-emitter with fully bypassed RE"
+
+nodes:
+    - id: GND
+      type: ground
+    - id: Vin
+      type: input
+    - id: VCC
+      type: supply
+      value: 12
+    - id: Vout
+      type: output
+    - id: N3
+
+components:
+    - id: RE
+      type: resistor
+      value: 1k
+      pins: [N3, GND]
+    - id: CE
+      type: capacitor
+      pins: [N3, GND]
+      ac_behavior: short_circuit
+    - id: RC
+      type: resistor
+      value: 2k
+      pins: [VCC, Vout]
+
+specs:
+  find:
+    - Av(Vout, Vin)
+"""
+    ingested = ingest(raw_ci)
+    ac_prob = extract_ac_problem(ingested)
+
+    # N3 must coalesce with GND
+    assert ac_prob.canonical_node("N3") == "GND"
+
+    # RE is in parallel with shorted CE, so both its terminals are GND -> must be dropped
+    resistor_ids = {r.id for r in ac_prob.resistors}
+    assert "RE" not in resistor_ids
+    assert "RC" in resistor_ids
+
 
