@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 from aicione.ingest import ingest
+from aicione.pipeline import solve_circuit
 from aicione.solver import extract_ac_problem, extract_dc_problem, solve_ac, solve_dc
 
 
@@ -274,12 +275,122 @@ def command_solve_ac(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_solve(args: argparse.Namespace) -> int:
+    path = Path(args.path)
+    if not path.exists():
+        print(f"Error: File not found: {args.path}", file=sys.stderr)
+        return 1
+
+    try:
+        solution = solve_circuit(path)
+    except Exception as exc:
+        print(f"Error solving circuit: {exc}", file=sys.stderr)
+        return 1
+
+    if getattr(args, "json", False):
+        import json
+        print(json.dumps(solution.to_dict(), indent=2))
+        return 0
+
+    print("============================================================")
+    print(f"  AI.ciOne Solution: {solution.circuit_id}")
+    if solution.description:
+        print(f"  {solution.description}")
+    print("============================================================")
+
+    # 1. Target Results (specs.find)
+    if solution.find_results:
+        print("\n============================================================")
+        print("  TARGET RESULTS (specs.find)")
+        print("============================================================")
+        for target, val in solution.find_results.items():
+            is_num = isinstance(val, (int, float)) or (hasattr(val, "is_number") and val.is_number)
+            if is_num:
+                v_float = float(val)
+                if target.startswith(("Rin", "Zin", "Rout", "Zout", "rpi", "ro", "hie")):
+                    if abs(v_float) >= 1e3:
+                        formatted = f"{v_float / 1e3:10.3f} kOhm"
+                    else:
+                        formatted = f"{v_float:10.2f} Ohm"
+                elif target.startswith(("Ic", "Ib", "Ie", "Id", "Is", "Iac", "Idc")):
+                    if abs(v_float) < 1e-3:
+                        formatted = f"{v_float * 1e6:10.3f} uA"
+                    else:
+                        formatted = f"{v_float * 1e3:10.3f} mA"
+                elif target.startswith(("gm",)):
+                    formatted = f"{v_float * 1e3:10.2f} mS"
+                elif target.startswith(("V", "Vac", "Vdc", "Vbe", "Vce", "Vcb", "Vbc")):
+                    formatted = f"{v_float:10.3f} V"
+                else:
+                    formatted = f"{v_float:10.4f}"
+                print(f"  - {target:25s} = {formatted}")
+            else:
+                print(f"  - {target:25s} = {val}")
+
+    # 2. DC Quiescent Operating Point Summary
+    if solution.dc_solution and solution.dc_solution.bjt_operating_points:
+        print("\n------------------------------------------------------------")
+        print("  DC Quiescent Operating Point Summary")
+        print("------------------------------------------------------------")
+        for q_id, q_pt in solution.dc_solution.bjt_operating_points.items():
+            is_ic_num = isinstance(q_pt.ic, (int, float)) or (hasattr(q_pt.ic, "is_number") and q_pt.ic.is_number)
+            if is_ic_num:
+                ib_str = f"{float(q_pt.ib) * 1e6:7.2f} uA"
+                ic_str = f"{float(q_pt.ic) * 1e3:7.3f} mA"
+                ie_str = f"{float(q_pt.ie) * 1e3:7.3f} mA"
+                vbe_str = f"{float(q_pt.vbe):6.3f} V"
+                vce_str = f"{float(q_pt.vce):6.3f} V"
+                gm_str = f"{float(q_pt.gm) * 1e3:6.2f} mS" if q_pt.gm else "N/A"
+                rpi_str = f"{float(q_pt.rpi) / 1e3:6.2f} kOhm" if q_pt.rpi else "N/A"
+                print(f"  Transistor {q_id}:")
+                print(f"    IC  = {ic_str:<12s} IB  = {ib_str:<12s} IE  = {ie_str}")
+                print(f"    VCE = {vce_str:<12s} VBE = {vbe_str:<12s} gm  = {gm_str}")
+                print(f"    rpi = {rpi_str}")
+            else:
+                print(f"  Transistor {q_id}: IC={q_pt.ic}, IB={q_pt.ib}, VCE={q_pt.vce}")
+
+    # 3. AC Small-Signal Potentials
+    if solution.ac_solution:
+        print("\n------------------------------------------------------------")
+        print("  AC Small-Signal Incremental Potentials")
+        print("------------------------------------------------------------")
+        v_items = []
+        for n_id, v in solution.ac_solution.node_voltages.items():
+            if n_id in ("GND", "VCC", "VDD") or float(v) == 0.0:
+                continue
+            is_num = isinstance(v, (int, float)) or (hasattr(v, "is_number") and v.is_number)
+            if is_num:
+                v_items.append(f"v({n_id}) = {float(v):.3f} V")
+            else:
+                v_items.append(f"v({n_id}) = {v}")
+        if v_items:
+            print("  " + ", ".join(v_items))
+
+    # 4. Warnings
+    if solution.warnings:
+        print("\n[Validation Warnings]")
+        for w in solution.warnings:
+            print(f"  - {w}")
+
+    print("\n-> Circuit solved successfully.\n")
+    return 0
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="aicione",
         description="AI.ciOne Analytical Engine CLI",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # solve (unified end-to-end)
+    solve_unified_parser = subparsers.add_parser(
+        "solve",
+        help="Solve the circuit end-to-end (DC operating point + AC small-signal + specs.find evaluation).",
+    )
+    solve_unified_parser.add_argument("path", help="Path to the .ci file")
+    solve_unified_parser.add_argument("--json", action="store_true", help="Output solution in JSON format")
+    solve_unified_parser.set_defaults(func=command_solve)
 
     # inspect-dc
     inspect_parser = subparsers.add_parser(

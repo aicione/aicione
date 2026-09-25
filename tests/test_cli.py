@@ -65,3 +65,32 @@ def test_cli_solve_ac_success(capsys):
     assert "v(Vout  ) =    -1.7504 V" in captured.out
 
 
+def test_cli_solve_unified_success(capsys):
+    fixture_path = str(FIXTURES_DIR / "bjt_amplifier.ci")
+    exit_code = main(["solve", fixture_path])
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "AI.ciOne Solution: bjt_ce_amplifier" in captured.out
+    assert "TARGET RESULTS (specs.find)" in captured.out
+    assert "Av(Vout, Vin)" in captured.out
+    assert "-1.7504" in captured.out
+    assert "Rin(Vin, GND)" in captured.out
+    assert "7.635 kOhm" in captured.out
+    assert "DC Quiescent Operating Point Summary" in captured.out
+    assert "Transistor Q1:" in captured.out
+    assert "Circuit solved successfully." in captured.out
+
+
+def test_cli_solve_unified_json(capsys):
+    import json
+    fixture_path = str(FIXTURES_DIR / "bjt_amplifier.ci")
+    exit_code = main(["solve", "--json", fixture_path])
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert data["circuit_id"] == "bjt_ce_amplifier"
+    assert "Av(Vout, Vin)" in data["find_results"]
+    assert data["find_results"]["Av(Vout, Vin)"] == pytest.approx(-1.7504, rel=1e-3)
+
+
+

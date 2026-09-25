@@ -27,6 +27,12 @@ source .venv/bin/activate
 # Validate circuit using CEML
 ceml check tests/fixtures/bjt_amplifier.ci
 
+# Solve circuit end-to-end (DC bias + AC small-signal + specs.find)
+aicione solve tests/fixtures/bjt_amplifier.ci
+
+# Export solution as JSON
+aicione solve tests/fixtures/bjt_amplifier.ci --json
+
 # Inspect extracted DC mathematical network
 aicione inspect-dc tests/fixtures/bjt_amplifier.ci
 
@@ -51,3 +57,4 @@ Design choices and implementation roadmaps are documented under [`decisions/`](d
 - [ADR 0005](decisions/0005-ac-small-signal-hybrid-pi-ast.md): AC Small-Signal AST Modeling and Linearized Device Representations
 - [ADR 0006](decisions/0006-ac-problem-extraction-and-node-coalescing.md): AC Circuit Problem Extraction and Node Coalescing
 - [ADR 0007](decisions/0007-ac-analytical-solver-sympy.md): AC Analytical Solver using SymPy Nodal Analysis and Small-Signal Linearization
+- [ADR 0008](decisions/0008-unified-multiregime-pipeline-and-spec-dispatch.md): Unified Multi-Regime Pipeline and Target Specification Dispatch
