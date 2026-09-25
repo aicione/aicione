@@ -35,6 +35,9 @@ aicione solve-dc tests/fixtures/bjt_amplifier.ci
 
 # Inspect extracted AC small-signal network
 aicione inspect-ac tests/fixtures/bjt_amplifier.ci
+
+# Solve AC small-signal transfer functions and impedances
+aicione solve-ac tests/fixtures/bjt_amplifier.ci
 ```
 
 ## Architecture Decision Records (ADRs)
@@ -47,3 +50,4 @@ Design choices and implementation roadmaps are documented under [`decisions/`](d
 - [ADR 0004](decisions/0004-ac-small-signal-solver-roadmap.md): AC Small-Signal Solver Strategy and Implementation Roadmap
 - [ADR 0005](decisions/0005-ac-small-signal-hybrid-pi-ast.md): AC Small-Signal AST Modeling and Linearized Device Representations
 - [ADR 0006](decisions/0006-ac-problem-extraction-and-node-coalescing.md): AC Circuit Problem Extraction and Node Coalescing
+- [ADR 0007](decisions/0007-ac-analytical-solver-sympy.md): AC Analytical Solver using SymPy Nodal Analysis and Small-Signal Linearization

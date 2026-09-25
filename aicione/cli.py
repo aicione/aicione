@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 from aicione.ingest import ingest
-from aicione.solver import extract_ac_problem, extract_dc_problem, solve_dc
+from aicione.solver import extract_ac_problem, extract_dc_problem, solve_ac, solve_dc
 
 
 def command_inspect_dc(args: argparse.Namespace) -> int:
@@ -215,6 +215,65 @@ def command_solve_dc(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_solve_ac(args: argparse.Namespace) -> int:
+    path = Path(args.path)
+    if not path.exists():
+        print(f"Error: File not found: {args.path}", file=sys.stderr)
+        return 1
+
+    try:
+        ingested = ingest(path)
+        ac_problem = extract_ac_problem(ingested)
+        solution = solve_ac(ac_problem)
+    except Exception as exc:
+        print(f"Error solving AC circuit: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"============================================================")
+    print(f"  AI.ciOne AC Small-Signal Solution: {solution.circuit_id}")
+    print(f"============================================================")
+
+    # 1. Evaluated Specs
+    if solution.evaluated_specs:
+        print("\n[Evaluated Target Specifications (specs.find)]")
+        for target, val in solution.evaluated_specs.items():
+            is_num = isinstance(val, (int, float)) or (hasattr(val, "is_number") and val.is_number)
+            if is_num:
+                v_float = float(val)
+                if target.startswith(("Rin", "Zin", "Rout", "Zout")):
+                    if abs(v_float) >= 1e3:
+                        unit_str = f"{v_float / 1e3:10.3f} kOhm"
+                    else:
+                        unit_str = f"{v_float:10.2f} Ohm"
+                    print(f"  - {target:25s} = {unit_str}")
+                else:
+                    print(f"  - {target:25s} = {v_float:10.4f}")
+            else:
+                print(f"  - {target:25s} = {val}")
+
+    # 2. Node Voltages
+    print("\n[Solved AC Incremental Node Potentials]")
+    for n_id, v in solution.node_voltages.items():
+        is_num = isinstance(v, (int, float)) or (hasattr(v, "is_number") and v.is_number)
+        if is_num:
+            print(f"  - v({n_id:6s}) = {float(v):10.4f} V")
+        else:
+            print(f"  - v({n_id:6s}) = {v}")
+
+    # 3. Source Currents
+    if solution.source_currents:
+        print("\n[Solved AC Source Currents]")
+        for s_id, i_val in solution.source_currents.items():
+            is_num = isinstance(i_val, (int, float)) or (hasattr(i_val, "is_number") and i_val.is_number)
+            if is_num:
+                print(f"  - i({s_id:6s}) = {float(i_val) * 1e3:10.4f} mA")
+            else:
+                print(f"  - i({s_id:6s}) = {i_val}")
+
+    print("\n-> AC Small-Signal analysis completed successfully.\n")
+    return 0
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="aicione",
@@ -245,6 +304,14 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     solve_parser.add_argument("path", help="Path to the .ci file")
     solve_parser.set_defaults(func=command_solve_dc)
+
+    # solve-ac
+    solve_ac_parser = subparsers.add_parser(
+        "solve-ac",
+        help="Solve the AC small-signal transfer functions and impedances analytically with SymPy.",
+    )
+    solve_ac_parser.add_argument("path", help="Path to the .ci file")
+    solve_ac_parser.set_defaults(func=command_solve_ac)
 
     args = parser.parse_args(argv)
     return args.func(args)

@@ -50,3 +50,18 @@ def test_cli_inspect_ac_success(capsys):
     assert "rpi = 2.02 kOhm" in captured.out
     assert "Av(Vout, Vin)" in captured.out
 
+
+def test_cli_solve_ac_success(capsys):
+    fixture_path = str(FIXTURES_DIR / "bjt_amplifier.ci")
+    exit_code = main(["solve-ac", fixture_path])
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "AI.ciOne AC Small-Signal Solution: bjt_ce_amplifier" in captured.out
+    assert "Av(Vout, Vin)" in captured.out
+    assert "-1.7504" in captured.out
+    assert "Rin(Vin, GND)" in captured.out
+    assert "7.635 kOhm" in captured.out
+    assert "v(Vin   ) =     1.0000 V" in captured.out
+    assert "v(Vout  ) =    -1.7504 V" in captured.out
+
+
