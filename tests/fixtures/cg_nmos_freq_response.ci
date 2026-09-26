@@ -1,0 +1,72 @@
+ceml_version: "0.1"
+circuit_id: "cg_nmos_freq_response"
+description: "Common-gate NMOS amplifier with upper cutoff frequency"
+
+nodes:
+    - id: GND
+      type: ground
+    - id: Vs
+      type: input
+    - id: N1
+    - id: N_gate
+    - id: N_drain
+    - id: N_source
+    - id: VDD
+      type: supply
+      value: 20
+    - id: Vout
+      type: output
+
+components:
+    - id: R_gen
+      type: resistor
+      value: 50
+      pins: [N1, Vs]
+    - id: C2
+      type: capacitor
+      pins: [N_source, N1]
+      ac_behavior: short_circuit
+    - id: RS
+      type: resistor
+      value: 3k3
+      pins: [N_source, GND]
+    - id: R1
+      type: resistor
+      value: 4.7M
+      pins: [VDD, N_gate]
+    - id: R2
+      type: resistor
+      value: 2.2M
+      pins: [N_gate, GND]
+    - id: C1
+      type: capacitor
+      pins: [N_gate, GND]
+      ac_behavior: short_circuit
+    - id: M1
+      type: MOSFET
+      polarity: NMOS
+      pins:
+        gate: N_gate
+        drain: N_drain
+        source: N_source
+    - id: RD
+      type: resistor
+      value: 3k3
+      pins: [VDD, N_drain]
+    - id: C
+      type: capacitor
+      pins: [N_drain, Vout]
+      ac_behavior: short_circuit
+    - id: RL
+      type: resistor
+      value: 10k
+      pins: [Vout, GND]
+
+specs:
+  given:
+    - gm(M1): 4m
+    - Cgd(M1): 4p
+    - Cgs(M1): 1.1p
+  find:
+    - Av(Vout, Vs)
+    - Fp(Vout, Vs)
