@@ -273,9 +273,28 @@ def extract_ac_problem(
             # Explicit given specs have precedence
             gm = _get_given_param(ingested, f"gm({comp_id})")
             rpi = _get_given_param(ingested, f"rpi({comp_id})") or _get_given_param(ingested, f"hie({comp_id})")
-            ro = _get_given_param(ingested, f"ro({comp_id})")
+            hfe = _get_given_param(ingested, f"hfe({comp_id})")
+            ro = _get_given_param(ingested, f"ro({comp_id})") or (
+                (1.0 / _get_given_param(ingested, f"hoe({comp_id})")) if _get_given_param(ingested, f"hoe({comp_id})") else None
+            )
             cpi = _get_given_param(ingested, f"Cpi({comp_id})")
             cmu = _get_given_param(ingested, f"Cmu({comp_id})")
+
+            # Constitutive deduction from explicit specs: beta = gm * rpi => gm = beta / rpi, rpi = beta / gm
+            if gm is None and hfe is not None and rpi is not None:
+                try:
+                    rpi_f = float(rpi)
+                    if rpi_f != 0:
+                        gm = float(hfe) / rpi_f
+                except (ValueError, TypeError):
+                    pass
+            elif rpi is None and hfe is not None and gm is not None:
+                try:
+                    gm_f = float(gm)
+                    if gm_f != 0:
+                        rpi = float(hfe) / gm_f
+                except (ValueError, TypeError):
+                    pass
 
             # Fallback to DC quiescent point solution
             if dc_solution and comp_id in dc_solution.bjt_operating_points:
@@ -286,6 +305,22 @@ def extract_ac_problem(
                     rpi = q_pt.rpi
                 if ro is None and q_pt.ro is not None:
                     ro = q_pt.ro
+
+            # Secondary deduction if one parameter was resolved from DC
+            if gm is None and hfe is not None and rpi is not None:
+                try:
+                    rpi_f = float(rpi)
+                    if rpi_f != 0:
+                        gm = float(hfe) / rpi_f
+                except (ValueError, TypeError):
+                    pass
+            elif rpi is None and hfe is not None and gm is not None:
+                try:
+                    gm_f = float(gm)
+                    if gm_f != 0:
+                        rpi = float(hfe) / gm_f
+                except (ValueError, TypeError):
+                    pass
 
             # If still None, fall back to symbolic identifiers
             if gm is None:

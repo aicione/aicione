@@ -1,0 +1,100 @@
+ceml_version: "0.1"
+circuit_id: "three_npn_feedback_amplifier"
+description: "Three-stage NPN BJT amplifier with active emitter bias and feedback from output stage emitter to tail stage base"
+
+nodes:
+    - id: GND
+      type: ground
+    - id: Vin
+      type: input
+    - id: N1
+    - id: N2
+    - id: N3
+    - id: N4
+    - id: N5
+    - id: N6
+    - id: N7
+    - id: VCC
+      type: supply
+      value: 25
+    - id: Vout
+      type: output
+
+components:
+    - id: C1
+      type: capacitor
+      pins: [Vin, N1]
+      ac_behavior: short_circuit
+    - id: RX
+      type: resistor
+      pins: [VCC, N1]
+      value: 33k
+    - id: RY
+      type: resistor
+      pins: [N1, GND]
+      value: 22k
+    - id: T1
+      type: BJT
+      polarity: NPN
+      pins:
+        base: N1
+        collector: N2
+        emitter: N3
+    - id: RC1
+      type: resistor
+      pins: [VCC, N2]
+      value: 3k3
+    - id: RE1
+      type: resistor
+      pins: [N3, GND]
+      value: 8k2
+    - id: T2
+      type: BJT
+      polarity: NPN
+      pins:
+        base: N2
+        collector: N4
+        emitter: N5
+    - id: RC2
+      type: resistor
+      pins: [VCC, N4]
+      value: 5k6
+    - id: C2
+      type: capacitor
+      pins: [N4, Vout]
+      ac_behavior: short_circuit
+    - id: RL
+      type: resistor
+      pins: [Vout, GND]
+      value: 10k
+    - id: RE2
+      type: resistor
+      pins: [N5, N6]
+      value: 8k2
+    - id: T3
+      type: BJT
+      polarity: NPN
+      pins:
+        base: N6
+        collector: N3
+        emitter: N7
+    - id: RE3
+      type: resistor
+      pins: [N7, GND]
+      value: 2k2
+    - id: RB3
+      type: resistor
+      pins: [N6, GND]
+      value: 4k7
+
+specs:
+  given:
+    - hie(T1): 1.2k
+    - hie(T2): 2.4k
+    - hie(T3): 2.2k
+    - hfe(T1): 150
+    - hfe(T2): 100
+    - hfe(T3): 180
+  find:
+    - Av(Vout, Vin)
+    - Rin(N1, GND)
