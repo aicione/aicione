@@ -136,14 +136,32 @@ def command_inspect_ac(args: argparse.Namespace) -> int:
             print(f"  - {m.id:6s}: Gate={m.gate_node}, Drain={m.drain_node}, Source={m.source_node}")
             print(f"           Parameters: gm = {m.gm}, ro = {m.ro or 'inf'}")
 
-    # 5. Sources
+    # 5. High-Frequency Capacitive Branches
+    if ac_problem.capacitors:
+        print(f"\n[High-Frequency Capacitive Branches ({len(ac_problem.capacitors)})]")
+        for c in ac_problem.capacitors:
+            kind = "internal junction" if c.is_internal else "discrete"
+            is_num = isinstance(c.capacitance, (int, float)) or (hasattr(c.capacitance, "is_number") and c.capacitance.is_number)
+            if is_num:
+                c_float = float(c.capacitance)
+                if abs(c_float) < 1e-9:
+                    c_str = f"{c_float * 1e12:.2f} pF"
+                elif abs(c_float) < 1e-6:
+                    c_str = f"{c_float * 1e9:.2f} nF"
+                else:
+                    c_str = f"{c_float * 1e6:.2f} uF"
+            else:
+                c_str = str(c.capacitance)
+            print(f"  - {c.id:10s} between {c.node_a:<6s} and {c.node_b:<6s} | C = {c_str:<10s} ({kind})")
+
+    # 6. Sources
     if ac_problem.sources:
         print(f"\n[AC Test/Signal Sources ({len(ac_problem.sources)})]")
         for s in ac_problem.sources:
             kind = "Voltage Source" if s.is_voltage else "Current Source"
             print(f"  - {s.id:6s} from {s.node_p} to {s.node_n} | {kind} = {s.value}")
 
-    # 6. Target specs
+    # 7. Target specs
     if ac_problem.find_targets:
         print(f"\n[Specs to Solve in AC Analysis]")
         for t in ac_problem.find_targets:

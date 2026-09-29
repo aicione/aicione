@@ -133,12 +133,23 @@ class MOSFETSmallSignalDevice:
 
 
 @dataclass
+class CapacitorBranch:
+    """A small-signal capacitive branch active at high frequencies."""
+    id: str
+    node_a: str
+    node_b: str
+    capacitance: Union[float, str]  # Numeric in Farads or literal symbol
+    is_internal: bool = False  # True if generated from transistor junction (Cpi, Cmu, Cgs, Cgd)
+
+
+@dataclass
 class ACSolverProblem:
     """A complete, self-contained AC small-signal problem ready for equation formulation."""
     circuit_id: str
     nodes: dict[str, SolverNode] = field(default_factory=dict)
     node_aliases: dict[str, str] = field(default_factory=dict)  # Maps coalesced nodes to canonical node ID
     resistors: list[ResistorBranch] = field(default_factory=list)
+    capacitors: list[CapacitorBranch] = field(default_factory=list)
     sources: list[ACSourceBranch] = field(default_factory=list)
     bjts: list[BJTHybridPiDevice] = field(default_factory=list)
     mosfets: list[MOSFETSmallSignalDevice] = field(default_factory=list)

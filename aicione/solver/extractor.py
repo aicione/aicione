@@ -15,6 +15,7 @@ from aicione.solver.models import (
     ACSolverProblem,
     BJTDCDevice,
     BJTHybridPiDevice,
+    CapacitorBranch,
     DCSolverProblem,
     DCSourceBranch,
     MOSFETDCDevice,
@@ -398,11 +399,64 @@ def extract_ac_problem(
                 )
                 break
 
+    # 8. Extract Capacitive Branches (active at high frequencies)
+    capacitors: list[CapacitorBranch] = []
+
+    # 8.1 Discrete small-signal capacitors (load, compensation, etc. not marked as AC short circuits)
+    for comp_id, comp in ingested.components.items():
+        if comp.type == ComponentType.CAPACITOR.value and isinstance(comp.pins, list) and len(comp.pins) == 2:
+            if comp.ac_behavior != AcBehavior.SHORT_CIRCUIT:
+                na = find(comp.pins[0])
+                nb = find(comp.pins[1])
+                if na == nb:
+                    continue
+                c_val: Union[float, str] = comp.value.numeric if (comp.value and comp.value.numeric is not None) else (
+                    comp.value.raw if comp.value else comp_id
+                )
+                capacitors.append(
+                    CapacitorBranch(id=comp_id, node_a=na, node_b=nb, capacitance=c_val, is_internal=False)
+                )
+
+    # 8.2 BJT internal junction capacitances (Cpi, Cmu)
+    for q in bjts:
+        if q.cpi is not None:
+            base_n = q.base_node
+            emitter_n = q.emitter_node
+            if base_n != emitter_n:
+                capacitors.append(
+                    CapacitorBranch(id=f"Cpi_{q.id}", node_a=base_n, node_b=emitter_n, capacitance=q.cpi, is_internal=True)
+                )
+        if q.cmu is not None:
+            base_n = q.base_node
+            collector_n = q.collector_node
+            if base_n != collector_n:
+                capacitors.append(
+                    CapacitorBranch(id=f"Cmu_{q.id}", node_a=base_n, node_b=collector_n, capacitance=q.cmu, is_internal=True)
+                )
+
+    # 8.3 MOSFET internal junction capacitances (Cgs, Cgd)
+    for m in mosfets:
+        if m.cgs is not None:
+            gate_n = m.gate_node
+            source_n = m.source_node
+            if gate_n != source_n:
+                capacitors.append(
+                    CapacitorBranch(id=f"Cgs_{m.id}", node_a=gate_n, node_b=source_n, capacitance=m.cgs, is_internal=True)
+                )
+        if m.cgd is not None:
+            gate_n = m.gate_node
+            drain_n = m.drain_node
+            if gate_n != drain_n:
+                capacitors.append(
+                    CapacitorBranch(id=f"Cgd_{m.id}", node_a=gate_n, node_b=drain_n, capacitance=m.cgd, is_internal=True)
+                )
+
     return ACSolverProblem(
         circuit_id=ingested.circuit_id,
         nodes=nodes,
         node_aliases=node_aliases,
         resistors=resistors,
+        capacitors=capacitors,
         sources=sources,
         bjts=bjts,
         mosfets=mosfets,

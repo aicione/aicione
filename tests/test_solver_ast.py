@@ -271,3 +271,96 @@ specs:
     assert "RC" in resistor_ids
 
 
+def test_extract_ac_problem_high_frequency_capacitors():
+    """Validates that internal junction capacitances and discrete HF capacitors are extracted."""
+    ci_path = FIXTURES_DIR / "cg_nmos_freq_response.ci"
+    ingested = ingest(ci_path)
+    ac_prob = extract_ac_problem(ingested)
+
+    assert len(ac_prob.capacitors) == 2
+    cap_map = {c.id: c for c in ac_prob.capacitors}
+
+    # Cgs between GND (gate) and N1 (source)
+    assert "Cgs_M1" in cap_map
+    cgs = cap_map["Cgs_M1"]
+    assert cgs.node_a == "GND"
+    assert cgs.node_b == "N1"
+    assert cgs.capacitance == pytest.approx(1.1e-12)
+    assert cgs.is_internal is True
+
+    # Cgd between GND (gate) and Vout (drain)
+    assert "Cgd_M1" in cap_map
+    cgd = cap_map["Cgd_M1"]
+    assert cgd.node_a == "GND"
+    assert cgd.node_b == "Vout"
+    assert cgd.capacitance == pytest.approx(4e-12)
+    assert cgd.is_internal is True
+
+
+def test_extract_ac_problem_cascade_discrete_and_internal_capacitors():
+    """Validates extraction of discrete load capacitor CL alongside BJT Cpi and Cmu."""
+    raw_ci = """
+ceml_version: "0.1"
+circuit_id: "bjt_with_cl"
+description: "BJT amplifier with discrete load capacitor and internal capacitances"
+
+nodes:
+    - id: GND
+      type: ground
+    - id: Vin
+      type: input
+    - id: VCC
+      type: supply
+      value: 12
+    - id: Vout
+      type: output
+
+components:
+    - id: Q1
+      type: BJT
+      polarity: NPN
+      pins:
+        base: Vin
+        collector: Vout
+        emitter: GND
+    - id: RC
+      type: resistor
+      value: 2k
+      pins: [VCC, Vout]
+    - id: CL
+      type: capacitor
+      value: 15p
+      pins: [Vout, GND]
+
+specs:
+  given:
+    - hie(Q1): 1k
+    - hfe(Q1): 100
+    - Cpi(Q1): 50p
+    - Cmu(Q1): 5p
+  find:
+    - Av(Vout, Vin)
+"""
+    ingested = ingest(raw_ci)
+    ac_prob = extract_ac_problem(ingested)
+
+    # 3 capacitive branches: CL, Cpi_Q1, Cmu_Q1
+    assert len(ac_prob.capacitors) == 3
+    cap_map = {c.id: c for c in ac_prob.capacitors}
+
+    assert "CL" in cap_map
+    assert cap_map["CL"].is_internal is False
+    assert cap_map["CL"].capacitance == pytest.approx(15e-12)
+
+    assert "Cpi_Q1" in cap_map
+    assert cap_map["Cpi_Q1"].is_internal is True
+    assert cap_map["Cpi_Q1"].capacitance == pytest.approx(50e-12)
+
+    assert "Cmu_Q1" in cap_map
+    assert cap_map["Cmu_Q1"].is_internal is True
+    assert cap_map["Cmu_Q1"].capacitance == pytest.approx(5e-12)
+
+    # gm deduced from hfe / hie = 100 / 1000 = 0.1 S
+    assert ac_prob.bjts[0].gm == pytest.approx(0.1)
+
+
