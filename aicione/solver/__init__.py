@@ -19,16 +19,26 @@ from aicione.solver.models import (
     ResistorBranch,
     SolverNode,
 )
+from aicione.solver.octc import (
+    OCTCSolution,
+    OCTCSolver,
+    OCTCTimeConstant,
+    solve_octc,
+)
 
 __all__ = [
     "extract_dc_problem",
     "extract_ac_problem",
     "solve_dc",
     "solve_ac",
+    "solve_octc",
     "DCSolver",
     "ACSolver",
+    "OCTCSolver",
     "DCSolution",
     "ACSolution",
+    "OCTCSolution",
+    "OCTCTimeConstant",
     "BJTQuiescentPoint",
     "DCSolverProblem",
     "SolverNode",
@@ -42,3 +52,4 @@ __all__ = [
     "MOSFETSmallSignalDevice",
     "ACSolverProblem",
 ]
+

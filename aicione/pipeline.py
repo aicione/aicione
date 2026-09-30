@@ -68,11 +68,33 @@ class CircuitSolution:
             }
 
         if self.ac_solution:
-            res["ac_solution"] = {
+            ac_res: dict[str, Any] = {
                 "node_voltages": {k: _val_to_num_or_str(v) for k, v in self.ac_solution.node_voltages.items()},
                 "source_currents": {k: _val_to_num_or_str(v) for k, v in self.ac_solution.source_currents.items()},
                 "evaluated_specs": {k: _val_to_num_or_str(v) for k, v in self.ac_solution.evaluated_specs.items()},
             }
+            if self.ac_solution.octc_solution:
+                octc = self.ac_solution.octc_solution
+                ac_res["octc"] = {
+                    "total_tau": _val_to_num_or_str(octc.total_tau),
+                    "f_h": _val_to_num_or_str(octc.f_h),
+                    "w_h": _val_to_num_or_str(octc.w_h),
+                    "time_constants": {
+                        k: {
+                            "capacitor_id": tc.capacitor_id,
+                            "node_a": tc.node_a,
+                            "node_b": tc.node_b,
+                            "rth": _val_to_num_or_str(tc.rth),
+                            "capacitance": _val_to_num_or_str(tc.capacitance),
+                            "tau": _val_to_num_or_str(tc.tau),
+                            "is_internal": tc.is_internal,
+                        }
+                        for k, tc in octc.time_constants.items()
+                    },
+                    "zeros": {k: _val_to_num_or_str(v) for k, v in octc.zeros.items()},
+                }
+            res["ac_solution"] = ac_res
+
 
         return res
 

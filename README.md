@@ -59,3 +59,4 @@ Design choices and implementation roadmaps are documented under [`decisions/`](d
 - [ADR 0007](decisions/0007-ac-analytical-solver-sympy.md): AC Analytical Solver using SymPy Nodal Analysis and Small-Signal Linearization
 - [ADR 0008](decisions/0008-unified-multiregime-pipeline-and-spec-dispatch.md): Unified Multi-Regime Pipeline and Target Specification Dispatch
 - [ADR 0009](decisions/0009-high-frequency-small-signal-modeling-and-extraction.md): High-Frequency Small-Signal Modeling, Internal Capacitances, and AC Extraction
+- [ADR 0010](decisions/0010-high-frequency-analytical-solver-and-octc.md): High-Frequency Analytical Solver and Open-Circuit Time Constants (OCTC)

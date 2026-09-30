@@ -234,6 +234,57 @@ def command_solve_dc(args: argparse.Namespace) -> int:
     return 0
 
 
+def _format_octc_summary(octc: Any) -> None:
+    """Renders formatted table of Open-Circuit Time Constants and high-frequency limits."""
+    print("\n------------------------------------------------------------")
+    print("  High-Frequency Open-Circuit Time Constants (OCTC)")
+    print("------------------------------------------------------------")
+    for c_id, tc in octc.time_constants.items():
+        c_val = float(tc.capacitance) if isinstance(tc.capacitance, (int, float)) else 0.0
+        if c_val < 1e-9:
+            c_str = f"{c_val * 1e12:6.2f} pF"
+        elif c_val < 1e-6:
+            c_str = f"{c_val * 1e9:6.2f} nF"
+        else:
+            c_str = f"{c_val * 1e6:6.2f} uF"
+
+        r_val = float(tc.rth) if isinstance(tc.rth, (int, float)) else 0.0
+        if r_val >= 1e3:
+            r_str = f"{r_val / 1e3:8.2f} kOhm"
+        else:
+            r_str = f"{r_val:8.2f} Ohm"
+
+        tau_val = float(tc.tau) if isinstance(tc.tau, (int, float)) else 0.0
+        if tau_val < 1e-9:
+            tau_str = f"{tau_val * 1e12:7.2f} ps"
+        elif tau_val < 1e-6:
+            tau_str = f"{tau_val * 1e9:7.3f} ns"
+        elif tau_val < 1e-3:
+            tau_str = f"{tau_val * 1e6:7.3f} us"
+        else:
+            tau_str = f"{tau_val * 1e3:7.3f} ms"
+
+        print(f"  - {c_id:8s} ({tc.node_a:<6s} <-> {tc.node_b:<6s}) : Rth = {r_str:<12s} C = {c_str:<10s} tau = {tau_str}")
+
+    tot_tau = float(octc.total_tau) if isinstance(octc.total_tau, (int, float)) else 0.0
+    if tot_tau < 1e-6:
+        tot_tau_str = f"{tot_tau * 1e9:.3f} ns"
+    else:
+        tot_tau_str = f"{tot_tau * 1e6:.3f} us"
+
+    fh_val = float(octc.f_h) if isinstance(octc.f_h, (int, float)) else 0.0
+    if fh_val >= 1e6:
+        fh_str = f"{fh_val / 1e6:.3f} MHz"
+    elif fh_val >= 1e3:
+        fh_str = f"{fh_val / 1e3:.3f} kHz"
+    else:
+        fh_str = f"{fh_val:.2f} Hz"
+
+    wh_val = float(octc.w_h) if isinstance(octc.w_h, (int, float)) else 0.0
+    print(f"  Total Time Constant Sum : sum(tau) = {tot_tau_str}")
+    print(f"  Dominant Upper Pole     : f_H      = {fh_str}  (w_H = {wh_val:.3e} rad/s)")
+
+
 def command_solve_ac(args: argparse.Namespace) -> int:
     path = Path(args.path)
     if not path.exists():
@@ -264,11 +315,25 @@ def command_solve_ac(args: argparse.Namespace) -> int:
                         unit_str = f"{v_float / 1e3:10.3f} kOhm"
                     else:
                         unit_str = f"{v_float:10.2f} Ohm"
-                    print(f"  - {target:25s} = {unit_str}")
+                elif target.startswith(("Fp", "Fz")):
+                    if abs(v_float) >= 1e6:
+                        unit_str = f"{v_float / 1e6:10.3f} MHz"
+                    elif abs(v_float) >= 1e3:
+                        unit_str = f"{v_float / 1e3:10.3f} kHz"
+                    else:
+                        unit_str = f"{v_float:10.2f} Hz"
+                elif target.startswith(("Wp", "Wz")):
+                    unit_str = f"{v_float:10.3e} rad/s"
                 else:
-                    print(f"  - {target:25s} = {v_float:10.4f}")
+                    unit_str = f"{v_float:10.4f}"
+                print(f"  - {target:25s} = {unit_str}")
             else:
                 print(f"  - {target:25s} = {val}")
+
+    # 1b. OCTC Time Constants Summary
+    if solution.octc_solution:
+        _format_octc_summary(solution.octc_solution)
+
 
     # 2. Node Voltages
     print("\n[Solved AC Incremental Node Potentials]")
@@ -337,6 +402,15 @@ def command_solve(args: argparse.Namespace) -> int:
                         formatted = f"{v_float * 1e3:10.3f} mA"
                 elif target.startswith(("gm",)):
                     formatted = f"{v_float * 1e3:10.2f} mS"
+                elif target.startswith(("Fp", "Fz")):
+                    if abs(v_float) >= 1e6:
+                        formatted = f"{v_float / 1e6:10.3f} MHz"
+                    elif abs(v_float) >= 1e3:
+                        formatted = f"{v_float / 1e3:10.3f} kHz"
+                    else:
+                        formatted = f"{v_float:10.2f} Hz"
+                elif target.startswith(("Wp", "Wz")):
+                    formatted = f"{v_float:10.3e} rad/s"
                 elif target.startswith(("V", "Vac", "Vdc", "Vbe", "Vce", "Vcb", "Vbc")):
                     formatted = f"{v_float:10.3f} V"
                 else:
@@ -384,8 +458,13 @@ def command_solve(args: argparse.Namespace) -> int:
         if v_items:
             print("  " + ", ".join(v_items))
 
-    # 4. Warnings
+    # 4. High-Frequency OCTC Response
+    if solution.ac_solution and solution.ac_solution.octc_solution:
+        _format_octc_summary(solution.ac_solution.octc_solution)
+
+    # 5. Warnings
     if solution.warnings:
+
         print("\n[Validation Warnings]")
         for w in solution.warnings:
             print(f"  - {w}")

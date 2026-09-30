@@ -32,6 +32,7 @@ class ACSolution:
     evaluated_specs: dict[str, Union[float, sp.Expr]] = field(default_factory=dict)
     equations_solved: list[sp.Equality] = field(default_factory=list)
     unknown_symbols: list[sp.Symbol] = field(default_factory=list)
+    octc_solution: Optional[Any] = None
 
 
 def _to_sympy_value(val: Union[float, int, str]) -> Union[float, sp.Symbol, sp.Expr]:
@@ -215,8 +216,14 @@ class ACSolver:
             if s_sym in solution_map:
                 solved_currents[s_id] = solution_map[s_sym]
 
-        # 8. Evaluate target specs
-        evaluated_specs = self._evaluate_specs(solved_voltages, solved_currents)
+        # 8. High-Frequency OCTC Analysis (if capacitors present)
+        octc_solution = None
+        if self.problem.capacitors:
+            from aicione.solver.octc import solve_octc
+            octc_solution = solve_octc(self.problem)
+
+        # 9. Evaluate target specs
+        evaluated_specs = self._evaluate_specs(solved_voltages, solved_currents, octc_solution=octc_solution)
 
         return ACSolution(
             circuit_id=self.problem.circuit_id,
@@ -225,14 +232,16 @@ class ACSolver:
             evaluated_specs=evaluated_specs,
             equations_solved=self.equations,
             unknown_symbols=self.unknowns,
+            octc_solution=octc_solution,
         )
 
     def _evaluate_specs(
         self,
         voltages: dict[str, Union[float, sp.Expr]],
         currents: dict[str, Union[float, sp.Expr]],
+        octc_solution: Optional[Any] = None,
     ) -> dict[str, Union[float, sp.Expr]]:
-        """Evaluates specs requested in find_targets (Av, Rin, Rout, Vac, etc.)."""
+        """Evaluates specs requested in find_targets (Av, Rin, Rout, Vac, Fp, Wp, etc.)."""
         results: dict[str, Union[float, sp.Expr]] = {}
 
         fn_pattern = re.compile(r"([A-Za-z0-9_]+)\(([^)]*)\)")
@@ -301,7 +310,48 @@ class ACSolver:
                 is_num = isinstance(diff, (int, float)) or (hasattr(diff, "is_number") and diff.is_number)
                 results[target] = float(diff) if is_num else diff
 
+            # 4. High-Frequency Dominant Pole Fp(out, in) or Wp(out, in)
+            elif fn_name == "Fp":
+                if octc_solution:
+                    results[target] = octc_solution.f_h
+                else:
+                    results[target] = sp.oo
+
+            elif fn_name == "Wp":
+                if octc_solution:
+                    results[target] = octc_solution.w_h
+                else:
+                    results[target] = sp.oo
+
+            # 5. High-Frequency Transmission Zero Fz(out, in) or Wz(out, in)
+            elif fn_name == "Fz":
+                if octc_solution and octc_solution.zeros:
+                    if "f_z_gs" in octc_solution.zeros:
+                        results[target] = octc_solution.zeros["f_z_gs"]
+                    elif "f_z_gd" in octc_solution.zeros:
+                        results[target] = octc_solution.zeros["f_z_gd"]
+                    elif "f_z_mu" in octc_solution.zeros:
+                        results[target] = octc_solution.zeros["f_z_mu"]
+                    else:
+                        results[target] = next(iter(octc_solution.zeros.values()))
+                else:
+                    results[target] = sp.oo
+
+            elif fn_name == "Wz":
+                if octc_solution and octc_solution.zeros:
+                    if "w_z_gs" in octc_solution.zeros:
+                        results[target] = octc_solution.zeros["w_z_gs"]
+                    elif "w_z_gd" in octc_solution.zeros:
+                        results[target] = octc_solution.zeros["w_z_gd"]
+                    elif "w_z_mu" in octc_solution.zeros:
+                        results[target] = octc_solution.zeros["w_z_mu"]
+                    else:
+                        results[target] = next(iter(octc_solution.zeros.values()))
+                else:
+                    results[target] = sp.oo
+
         return results
+
 
 
 def solve_ac(problem: ACSolverProblem) -> ACSolution:
